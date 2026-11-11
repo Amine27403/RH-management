@@ -1,0 +1,70 @@
+<?php
+
+namespace App\Form;
+
+use App\Entity\User;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+
+class UserType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        $builder
+            ->add('nom', TextType::class, [
+                'label' => 'Nom',
+                'attr' => ['class' => 'form-control']
+            ])
+            ->add('prenom', TextType::class, [
+                'label' => 'Prénom',
+                'attr' => ['class' => 'form-control']
+            ])
+            ->add('email', EmailType::class, [
+                'label' => 'Email',
+                'attr' => ['class' => 'form-control']
+            ])
+            ->add('mdp', PasswordType::class, [
+                'label' => 'Mot de passe',
+                'attr' => ['class' => 'form-control'],
+                'required' => $options['password_required'],
+                'mapped' => false,
+                'empty_data' => '',
+            ])
+            ->add('date_naissance', DateType::class, [
+                'label' => 'Date de naissance',
+                'widget' => 'single_text',
+                'attr' => ['class' => 'form-control'],
+                'required' => false
+            ])
+            ->add('roles', ChoiceType::class, [
+                'label' => 'Rôles',
+                'choices' => [
+                    'Administrateur RH' => 'ADMIN_RH',
+                    'Manager' => 'MANAGER',
+                    'Employe' => 'EMPLOYE',
+                    'Candidat' => 'CANDIDAT',
+                ],
+                'multiple' => false,
+                'expanded' => false,
+                'mapped' => false,
+                'data' => $options['data'] instanceof User ? $options['data']->getRole() : null,
+                'placeholder' => 'Choisir un role',
+                'attr' => ['class' => 'form-select']
+            ])
+        ;
+    }
+
+    public function configureOptions(OptionsResolver $resolver): void
+    {
+        $resolver->setDefaults([
+            'data_class' => User::class,
+            'password_required' => true,
+        ]);
+    }
+}

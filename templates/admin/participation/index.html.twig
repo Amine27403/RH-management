@@ -1,0 +1,355 @@
+{% extends 'admin/base_admin.html.twig' %}
+
+{% block title %}Gestion des Participations{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="fs-3 mb-1">Gestion des Participations</h1>
+                    <p class="mb-0">Acceptez, refusez ou supprimez les demandes d'inscription</p>
+                </div>
+            </div>
+
+            <div class="card p-3 mb-4">
+                <form action="{{ path('admin_participation_index') }}" method="GET" class="row g-3">
+                    <div class="col-md-10">
+                        <input type="text" name="q" class="form-control" placeholder="Rechercher par employé, formation ou statut..." value="{{ query }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-secondary w-100">
+                            <i class="ti ti-search"></i> Rechercher
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card table-responsive">
+                <div class="table-responsive" style="overflow-x: scroll; overflow-y: hidden; max-height: 500px !important; white-space: nowrap !important;">
+                    <table class="table mb-0 table-hover" style="min-width: 800px !important; table-layout: fixed;">
+                        <colgroup>
+                            <col style="width: 120px;">
+                            <col style="width: 200px;">
+                            <col style="width: 150px;">
+                            <col style="width: 200px;">
+                            <col style="width: 150px;">
+                            <col style="width: 100px;">
+                            <col style="width: 100px;">
+                            <col style="width: 120px;">
+                            <col style="width: 80px;">
+                        </colgroup>
+                    <thead class="table-light">
+                        <tr>
+                            <th>
+                                <a href="{{ path('admin_participation_index', {q: query, sort: 'user', order: sort == 'user' and order == 'ASC' ? 'DESC' : 'ASC'}) }}">
+                                    Employé {% if sort == 'user' %}<i class="ti ti-chevron-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ path('admin_participation_index', {q: query, sort: 'formation', order: sort == 'formation' and order == 'ASC' ? 'DESC' : 'ASC'}) }}">
+                                    Formation {% if sort == 'formation' %}<i class="ti ti-chevron-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ path('admin_participation_index', {q: query, sort: 'dateInscription', order: sort == 'dateInscription' and order == 'ASC' ? 'DESC' : 'ASC'}) }}">
+                                    Date Demande {% if sort == 'dateInscription' %}<i class="ti ti-chevron-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                                </a>
+                            </th>
+                            <th>
+                                <a href="{{ path('admin_participation_index', {q: query, sort: 'statut', order: sort == 'statut' and order == 'ASC' ? 'DESC' : 'ASC'}) }}">
+                                    Statut {% if sort == 'statut' %}<i class="ti ti-chevron-{{ order == 'ASC' ? 'up' : 'down' }}"></i>{% endif %}
+                                </a>
+                            </th>
+                            <th>Localisation</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for participation in participations %}
+                        <tr class="align-middle">
+                            <td>{{ participation.user.nom }} {{ participation.user.prenom }}</td>
+                            <td>
+                                <div>
+                                    <strong>{{ participation.formation.sujet }}</strong>
+                                    <br>
+                                    <small class="text-muted">Type: {{ participation.formation.type }}</small>
+                                </div>
+                            </td>
+                            <td>{{ participation.dateInscription ? participation.dateInscription|date('d/m/Y H:i') : '' }}</td>
+                            <td>
+                                {% set coordinates = null %}
+                                {% if participation.formation.localisation %}
+                                    {% if participation.formation.localisation matches '/(-?\d+\.\d+),(-?\d+\.\d+)/' %}
+                                        {% set coordinates = {latitude: matches[1], longitude: matches[2]} %}
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if coordinates and (participation.formation.type == 'présentiel' or participation.formation.type == 'hybride') %}
+                                    <button class="btn btn-sm btn-outline-info" onclick="showLocationMap({{ coordinates.latitude }}, {{ coordinates.longitude }}, '{{ participation.formation.sujet|e('js') }}')">
+                                        <i class="ti ti-map-pin"></i> Voir localisation
+                                    </button>
+                                {% elseif participation.formation.type == 'en ligne' %}
+                                    <span class="badge bg-info">En ligne</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if participation.statut == 'accepté' %}bg-success
+                                    {% elseif participation.statut == 'refusé' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ participation.statut|capitalize }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    {% if participation.statut == 'en attente' %}
+                                        <form action="{{ path('admin_participation_accepter', {'id': participation.id}) }}" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-success" title="Accepter">
+                                                <i class="ti ti-check"></i>
+                                            </button>
+                                        </form>
+                                        <form action="{{ path('admin_participation_refuser', {'id': participation.id}) }}" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Refuser">
+                                                <i class="ti ti-x"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <form action="{{ path('admin_participation_supprimer', {'id': participation.id}) }}" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette demande ?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ participation.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4">Aucune demande d'inscription trouvée.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ── PARTICIPATION CHARTS ── #}
+    <div class="row g-3 mb-4 mt-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Graphique en barres : nombre de participants par formation</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="participantsChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Graphique en camembert : répartition des statuts</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="resultsChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Chart.js SCRIPTS ── #}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    // Bar Chart: Participants per Training
+    const participantsCtx = document.getElementById('participantsChart').getContext('2d');
+    const participantsChart = new Chart(participantsCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ trainingLabels|json_encode|raw }},
+            datasets: [{
+                label: 'Nombre de participants',
+                data: {{ participantsPerTraining|json_encode|raw }},
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            }
+        }
+    });
+
+    // Pie Chart: Results Distribution
+    const resultsCtx = document.getElementById('resultsChart').getContext('2d');
+    const resultsChart = new Chart(resultsCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Accepté', 'Refusé', 'En attente'],
+            datasets: [{
+                data: [
+                    {{ resultsDistribution.accepté }},
+                    {{ resultsDistribution.refusé }},
+                    {{ resultsDistribution['en attente'] }}
+                ],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(59, 130, 246, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(239, 68, 68, 1)',
+                    'rgba(59, 130, 246, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    </script>
+
+<!-- Location Map Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="locationModalLabel">Localisation de la formation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="locationMap" style="height: 400px; width: 100%;"></div>
+                <div class="mt-3">
+                    <small class="text-muted">Cliquez sur le marqueur pour voir les coordonnées exactes</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let locationMap;
+let locationMarker;
+
+function showLocationMap(lat, lng, title) {
+    // Load Leaflet if not already loaded
+    if (typeof L === 'undefined') {
+        // Load CSS
+        const leafletCSS = document.createElement('link');
+        leafletCSS.rel = 'stylesheet';
+        leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(leafletCSS);
+        
+        // Load JS
+        const leafletJS = document.createElement('script');
+        leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletJS.onload = function() {
+            createLocationMap(lat, lng, title);
+        };
+        document.head.appendChild(leafletJS);
+    } else {
+        createLocationMap(lat, lng, title);
+    }
+}
+
+function createLocationMap(lat, lng, title) {
+    // Initialize map if not already done
+    if (!locationMap) {
+        const location = [lat, lng];
+        
+        locationMap = L.map('locationMap').setView(location, 15);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(locationMap);
+        
+        // Add marker
+        locationMarker = L.marker(location).addTo(locationMap);
+        locationMarker.bindPopup(title).openPopup();
+    } else {
+        // Update existing map
+        const location = [lat, lng];
+        locationMap.setView(location, 15);
+        locationMarker.setLatLng(location);
+        locationMarker.setPopupContent(title);
+        locationMarker.openPopup();
+    }
+    
+    // Update modal title
+    document.getElementById('locationModalLabel').textContent = 'Localisation: ' + title;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('locationModal'));
+    modal.show();
+}
+
+// Load Leaflet when page loads
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        // Load CSS
+        const leafletCSS = document.createElement('link');
+        leafletCSS.rel = 'stylesheet';
+        leafletCSS.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(leafletCSS);
+        
+        // Load JS
+        const leafletJS = document.createElement('script');
+        leafletJS.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        document.head.appendChild(leafletJS);
+    }, 100);
+});
+</script>
+</div>
+{% endblock %}
